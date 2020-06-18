@@ -48,8 +48,10 @@ function darwin_python3_install() {
 	curl -o ./src/${file} "${PYTHON3_URL}"
 	cd src
 	tar xzf ${file}
-	mkdir -p ../build/darwin-python3
-	cd ../build/darwin-python3
+	builddir=../build/darwin-python3
+	rm -rf ${builddir}
+	mkdir -p ${builddir}
+	cd ${builddir}
 	PATH=${TOOLSDIR}/bin:${PATH} ../../src/Python-${PYTHON3_VERSION}/configure --disable-shared --prefix="$TOOLSDIR"
 	#make install
 	cd ../..
@@ -64,8 +66,10 @@ function darwin_pkgconfig_install() {
   curl -o ./src/${file} "${PKGCONFIG_URL}"
 	cd src
 	tar xzf ${file}
-	mkdir -p ../build/darwin-pkgconfig
-	cd ../build/darwin-pkgconfig
+	builddir=../build/darwin-pkgconfig
+	rm -rf ${builddir}
+	mkdir -p ${builddir}
+	cd ${builddir}
 	mkdir -p ${TOOLSDIR}/lib/pkgconfig #absolute path in TOOLSDIR
   PKG_CONFIG_LIB_DIR=${TOOLSDIR}/lib/pkgconfig PATH=${TOOLSDIR}/bin:${PATH} \
     ../../src/pkg-config-${PKGCONFIG_VERSION}/configure --prefix=${TOOLSDIR} \
@@ -83,8 +87,10 @@ function darwin_autoconf_install() {
   curl -o ./src/${file} "${AUTOCONF_URL}"
 	cd src
 	tar xzf ${file}
-	mkdir -p ../build/darwin-autoconf
-	cd ../build/darwin-autoconf
+	builddir=../build/darwin-autoconf
+	rm -rf ${builddir}
+	mkdir -p ${builddir}
+	cd ${builddir}
   PATH=${TOOLSDIR}/bin:$PATH ../../src/autoconf-${AUTOCONF_VERSION}/configure --prefix=${TOOLSDIR}
   make install
   cd ../..
@@ -98,6 +104,10 @@ function darwin_automake_install() {
   curl -o ./src/${file} "${AUTOMAKE_URL}"
 	cd src
 	tar xzf ${file}
+	builddir=../build/darwin-automake
+	rm -rf ${builddir}
+	mkdir -p ${builddir}
+	cd ${builddir}
 	mkdir -p ../build/darwin-automake
 	cd ../build/darwin-automake
 	#we have to get autoconf which we just installed
@@ -114,8 +124,10 @@ function darwin_libtool_install() {
   curl -o ./src/${file} "${LIBTOOL_URL}"
 	cd src
 	tar xzf ${file}
-	mkdir -p ../build/darwin-libtool
-	cd ../build/darwin-libtool
+	builddir=../build/darwin-libtool
+	rm -rf ${builddir}
+	mkdir -p ${builddir}
+	cd ${builddir}
 	#we have to get autoconf which we just installed
   PATH=${TOOLSDIR}/bin:${PATH} ../../src/libtool-${LIBTOOL_VERSION}/configure --prefix=${TOOLSDIR}
   make install
