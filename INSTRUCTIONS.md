@@ -94,7 +94,7 @@ our ffs go compiler and remove the bootstrap compiler.  Your PATH should look li
 (although with your home directory, not mine):
 
 ```shell script
-echo $PATH
+$ echo $PATH
 /usr/bin:/bin:/usr/sbin:/sbin:/Users/iansmith/ffs/hostgo/bin
 ```
 
@@ -103,14 +103,19 @@ You can test your hostgo with `go version` which should report that it is
 go 1.14.4.  Once you have tested your hostgo and verified that your PATH is
 in good shape (above) you can delete the downloaded tarball: 
 ```shell script
-rm go1.14.4src.tar.gz
+$ rm go1.14.4src.tar.gz
 ``` 
 
 
 ## Stage 0: Prerequisites: Linux
 TBD
 
-## Stage 1: Tinygo (1 hour 15 minutes)
+## Stage 1: Cmake
+In the next section, we are going to be building a large C++ project 
+called LLVM and that tool uses "cmake" instead of the usual make to 
+build.
+
+## Stage 2: Tinygo (1 hour 15 minutes)
 
 For doing development that involves the target hardware (Raspberry PI 3B+)
 or the simulator (QEMU 5.0.0), you'll need tinygo.  Tinygo was originally
@@ -151,8 +156,8 @@ This warning is harmless and correct.
 Once the git operation is done, the script uses two make targets in the tinygo 
 repository to download, then build the llvm source code.  These two targets are:
 ```shell script
-make llvm-source
-make llvm-build
+$ make llvm-source
+$ make llvm-build
 ```
 In total, these two targets can take up to about two hours, but 1 hour and a little
 bit is much more common on recent computers.  
@@ -162,7 +167,29 @@ tinygo itself (`make`).  This only takes about 5 minutes.
 
 After this process is finished you will receive some instructions about updating
 your PATH to include the directories that allow you to run tinygo and
-llvm tools.  A 
+llvm tools.  After all this is done, it's a good time to check
+your PATH:
 
+```shell script
+$ echo $PATH
+```
 
+## Stage 4: The low-level libraries
 
+Now that we have our host go ("hostgo") compiler and our target go 
+compiler ("tinygo"), we are  *sadly* going to have build the tools for 
+cross-compling C code.  This  section of the instructions guides you 
+through the depedent libraries that are needed for:
+ 
+ * gnu binutils
+ * gcc
+ * gdb
+ * qemu
+ 
+ Those four tools are used on the host machine.  One reason we need this, 
+ is so we can use test code written in C to verify that our hardware or 
+ emulator is working correctly. Another reason is to be able to use the 
+ combination of qemu and gdb to debug (at the assembly level or the go 
+ level) our code running in the simulator.  This is very convenient.
+ 
+ 

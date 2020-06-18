@@ -24,9 +24,9 @@ function darwin_tinygo_install() {
   git clone "$TINYGO_GITURL"
   cd tinygo
   git checkout "$COMMIT_ID"
-  #make llvm-source
-  #make llvm-build
-  #make
+  make llvm-source
+  make llvm-build
+  make
   cd ..
 }
 
