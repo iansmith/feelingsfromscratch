@@ -14,6 +14,8 @@ PCRE2_URL="https://ftp.pcre.org/pub/pcre/pcre2-${PCRE2_VERSION}.tar.gz"
 
 OS=""
 TOOLSDIR=""
+JOBS=${JOBS:-""}
+
 
 source utils.bash
 
@@ -22,7 +24,7 @@ function darwin_gettext_install() {
   downloadSource "${GETTEXT_URL}" "${GETTEXT_VERSION}" gettext
   makeAndGotoBuildDir darwin gettext
 	PATH=${TOOLSDIR}/bin:$PATH ../../src/gettext-${GETTEXT_VERSION}/configure --prefix="$TOOLSDIR"
-	make install
+	make ${JOBS} install
 	cd ../..
 	return 0
 }
@@ -39,15 +41,11 @@ if [ "$OS" == "Darwin" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
-  #standardLib darwin "${FFI_URL}" "${FFI_VERSION}" libffi
-  #standardLib darwin "${LIBUNISTRING_URL}" "${LIBUNISTRING_VERSION}" libunistring
-  #standardLib darwin "${PCRE_URL}" "${PCRE_VERSION}" pcre
+  standardLib darwin "${FFI_URL}" "${FFI_VERSION}" libffi
+  standardLib darwin "${LIBUNISTRING_URL}" "${LIBUNISTRING_VERSION}" libunistring
+  standardLib darwin "${PCRE_URL}" "${PCRE_VERSION}" pcre
   standardLib darwin "${PCRE2_URL}" "${PCRE2_VERSION}" pcre2
-  #darwin_gettext_install
+  darwin_gettext_install
 else
   echo feelings from scratch only works on Darwin right now
 fi
-
-echo ----------
-echo If everything looks ok, you may want to delete the source code
-echo tarballs and the directories derived from them in the src directory.

@@ -6,20 +6,7 @@ GO_VERSION="1.14.4"
 
 GO_DOWNLOAD_URL="https://dl.google.com/go/go${GO_VERSION}.src.tar.gz"
 
-function getOS {
-	os=`uname -s`
-	if [ "$os" == "" ]; then
-		echo unable to determine OS, uname -s returned nothing
-		exit 1
-	fi
-
-	if [ "$os" != "Darwin" ]; then 
-		echo current feelings from scratch only works on Darwin
-		exit 1
-	fi
-	OS=$os	
-	return 0
-}
+source utils.bash
 
 function darwin_bootstrap_go() {
 	bootstrapCompiler=`which go`

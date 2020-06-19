@@ -18,8 +18,10 @@ GNUTLS_SHORT_VERSION="3.6"
 GNUTLS_URL="https://www.gnupg.org/ftp/gcrypt/gnutls/v${GNUTLS_SHORT_VERSION}/gnutls-${GNUTLS_VERSION}.tar.xz"
 WGET_VERSION="1.99.2"
 WGET_URL="https://ftp.gnu.org/gnu/wget/wget2-1.99.2.tar.gz"
+
 OS=""
 TOOLSDIR=""
+JOBS=${JOBS:-""}
 
 source utils.bash
 
@@ -28,23 +30,13 @@ function darwin_openssl_install() {
   downloadSource "${OPENSSL_URL}" "${OPENSSL_VERSION}" openssl
   makeAndGotoBuildDir darwin openssl
   altname="OpenSSL_${OPENSSL_VERSION}"
-  PATH=${TOOLSDIR}/bin:$PATH ../../src/openssl-${altname}/Configure no-shared \
+  PATH=${TOOLSDIR}/bin:$PATH ../../src/openssl-${altname}/Configure \
     --prefix="${TOOLSDIR}" --openssldir="${TOOLSDIR}" "${1}"
-  make install
+  make ${JOBS} install
   cd ../..
   return 0
 }
 
-function darwin_cloog_install() {
-  echo =================== installing cloog from ${CLOOG_URL}
-  downloadSource "${CLOOG_URL}" "${CLOOG_VERSION}" cloog
-  makeAndGotoBuildDir darwin cloog
-  PATH=${TOOLSDIR}/bin:$PATH ../../src/cloog-${CLOOG_VERSION}/configure --disable-shared \
-    --prefix="$TOOLSDIR" --with-gmp-prefix=${TOOLSDIR} --with-isl-builddir=../darwin-isl
-  make install
-  cd ../..
-  return 0
-}
 
 function darwin_p11kit_install() {
   echo =================== installing p11-kit from ${P11_URL}
@@ -52,7 +44,7 @@ function darwin_p11kit_install() {
   makeAndGotoBuildDir darwin p11-kit
   PATH=${TOOLSDIR}/bin:$PATH ../../src/p11-kit-${P11_VERSION}/configure \
     --prefix="$TOOLSDIR" --without-trust-paths
-  make install
+  make ${JOBS} install
   cd ../..
   return 0
 }
@@ -64,7 +56,7 @@ function darwin_unbound_install() {
   PATH=${TOOLSDIR}/bin:$PATH ../../src/unbound-${UNBOUND_VERSION}/configure \
     --prefix="$TOOLSDIR" --with-ssl=${TOOLSDIR} --with-libexpat=${TOOLSDIR} \
     --enable-fully-static --with-nettle=${TOOLSDIR}
-  make install
+  make ${JOBS} install
   cd ../..
   return 0
 }
@@ -73,11 +65,11 @@ function darwin_gnutls_install() {
   echo =================== installing gnutls from ${GNUTLS_URL}
   downloadSource "${GNUTLS_URL}" "${GNUTLS_VERSION}" gnutls
   makeAndGotoBuildDir darwin gnutls
-  LDFLAGS="-L${TOOLSDIR}/lib" CFLAGS="-I${TOOLSDIR}/include" \
+  LDFLAGS="-L${TOOLSDIR}/lib -v -read_only_relocs suppress" CFLAGS="-I${TOOLSDIR}/include" \
     PATH=${TOOLSDIR}/bin:$PATH PKG_CONFIG_PATH=${TOOLSDIR}/lib/pkgconfig \
     ../../src/gnutls-${GNUTLS_VERSION}/configure \
-    --prefix="$TOOLSDIR" --enable-openssl-compatibility
-  #make install
+    --prefix="$TOOLSDIR" --enable-openssl-compatibility --with-pic
+  make ${JOBS} install
   cd ../..
   return 0
 }
@@ -88,7 +80,7 @@ function darwin_nettle_install() {
   PATH=${TOOLSDIR}/bin:$PATH ../../src/nettle-${NETTLE_VERSION}/configure \
      --disable-shared --prefix=${TOOLSDIR} --with-lib-path=${TOOLSDIR}/lib \
      --with-include-path=${TOOLSDIR}/include --enable-static --disable-pic
-  make install
+  make ${JOBS} install
   cd ../..
   return 0
 }
@@ -104,20 +96,16 @@ if [ "$OS" == "Darwin" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
-  #darwin_openssl_install darwin64-x86_64-cc
-  #standardLib darwin "${TASN1_URL}" "${TASN1_VERSION}" libtasn1
-  #darwin_p11kit_install
-  #standardLib darwin "${IDN_URL}" "${IDN_VERSION}" libidn2
-  #darwin_nettle_install
-  #darwin_unbound_install
-  #darwin_gnutls_install
-  echo "=========== using WGET to test that our crypto libs are ok"
-  standardLib darwin "${WGET_URL}" "${WGET_VERSION}" wget2
+#  darwin_openssl_install darwin64-x86_64-cc
+#  standardLib darwin "${TASN1_URL}" "${TASN1_VERSION}" libtasn1
+#  darwin_p11kit_install
+#  standardLib darwin "${IDN_URL}" "${IDN_VERSION}" libidn2
+#  darwin_nettle_install
+#  darwin_unbound_install
+  darwin_gnutls_install
+#  echo "=========== using WGET to test that our crypto libs are ok"
+#  standardLib darwin "${WGET_URL}" "${WGET_VERSION}" wget2
 
 else
   echo feelings from scratch only works on Darwin right now
 fi
-
-echo ----------
-echo If everything looks ok, you may want to delete the source code
-echo tarballs and the directories derived from them in the src directory.

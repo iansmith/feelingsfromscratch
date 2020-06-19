@@ -54,7 +54,7 @@ function standardLibWithGmp {
   makeAndGotoBuildDir ${1} "${5}"
   PATH=${TOOLSDIR}/bin:$PATH ../../src/${altname}${4}/configure --disable-shared \
   --${2}=${TOOLSDIR} --prefix="$TOOLSDIR"
-  make install
+  make ${JOBS} install
   cd ../..
   return 0
 }
@@ -70,7 +70,7 @@ function standardLib() {
   downloadSource "${2}" "${3}" "${4}"
   makeAndGotoBuildDir ${1} "${4}"
   PATH=${TOOLSDIR}/bin:$PATH ../../src/${altname}${3}/configure --disable-shared --prefix="$TOOLSDIR"
-  make install
+  make ${JOBS} install
   cd ../..
   return 0
 }

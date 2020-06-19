@@ -13,6 +13,7 @@ LIBUV_URL="https://github.com/libuv/libuv/archive/v${LIBUV_VERSION}.tar.gz"
 
 OS=""
 TOOLSDIR=""
+JOBS=${JOBS:-""}
 
 source utils.bash
 
@@ -27,7 +28,8 @@ function darwin_ninja_install() {
 	rm -rf ${builddir}
 	mkdir -p ${builddir}
 	cd ${builddir}
-  PATH=${TOOLSDIR}/bin:${PATH} ../../src/ninja/configure.py --bootstrap --platform=darwin --verbose --with-python=$TOOLSDIR/bin/python3
+  PATH=${TOOLSDIR}/bin:${PATH} ../../src/ninja/configure.py --bootstrap \
+    --platform=darwin --verbose --with-python=$TOOLSDIR/bin/python3
   cp ./ninja ${TOOLSDIR}/bin
   cd ../../
   return 0
@@ -41,15 +43,32 @@ function darwin_meson_install() {
 }
 
 
-
+# no out of tree build?  ARRRGH
 function darwin_librhash_install() {
   echo =================== installing librhash from ${LIBRHASH_URL}
   downloadSource "${LIBRHASH_URL}" "${LIBRHASH_VERSION}" librhash
-  makeAndGotoBuildDir darwin librhash
   altname="RHash-${LIBRHASH_VERSION}"
-	PATH=${TOOLSDIR}/bin:$PATH ../../src/${altname}/configure --disable-lib-shared \
-	  --enable-lib-static --enable-static --prefix="$TOOLSDIR"
-	make install
+  cd src/${altname}
+	PATH=${TOOLSDIR}/bin:$PATH ./configure --disable-lib-shared \
+	  --enable-lib-static --enable-static --prefix="$TOOLSDIR" --enable-openssl \
+	  --extra-ldflags="-L${TOOLSDIR}/lib" --extra-cflags="-I${TOOLSDIR}/include"
+	make ${JOBS}
+	make ${JOBS} install
+	cd ../..
+	return 0
+}
+
+function darwin_libuv_install() {
+  echo =================== installing libuv from ${LIBUV_URL}
+  downloadSource "${LIBUV_URL}" "${LIBUV_VERSION}" libuv
+  cd src/libuv-${LIBUV_VERSION}
+  LIBTOOLIZE=libtoolize PATH=${TOOLSDIR}/bin:$PATH ./autogen.sh
+  cd ../..
+  makeAndGotoBuildDir darwin nettle
+	PATH=${TOOLSDIR}/bin:$PATH ../../src/libuv-${LIBUV_VERSION}/configure \
+	  --disable-shared --prefix="$TOOLSDIR"
+	make ${JOBS}
+	make ${JOBS} install
 	cd ../..
 	return 0
 }
@@ -68,7 +87,7 @@ function darwin_cmake_install() {
 	cd ${builddir}
 	PATH=${TOOLSDIR}/bin:$PATH ../../src/CMake-${CMAKE_VERSION}/bootstrap \
 	  --system-libs --system-curl --prefix="$TOOLSDIR"
-	make
+	make ${JOBS} install
 	cd ../..
 }
 
@@ -83,16 +102,12 @@ if [ "$OS" == "Darwin" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
-  #darwin_meson_install
-  #darwin_ninja_install
-  #standardLib darwin "${LIBARCHIVE_URL}" "${LIBARCHIVE_VERSION}" libarchive
-  #darwin_librhash_install
-  #standardLib "${LIBUV_URL}" "${LIBUV_VERSION}" libuv
+  darwin_meson_install
+  darwin_ninja_install
+  standardLib darwin "${LIBARCHIVE_URL}" "${LIBARCHIVE_VERSION}" libarchive
+  darwin_librhash_install
+  darwin_libuv_install
   darwin_cmake_install
 else
 	echo feelings from scratch only works on Darwin right now
 fi
-
-echo ----------
-echo If everything looks ok, you may want to delete the source code
-echo tarballs and the directories derived from them in the src directory.
