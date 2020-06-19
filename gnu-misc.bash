@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 LIBUNISTRING_VERSION="0.9.10"
 LIBUNISTRING_URL="https://ftp.gnu.org/gnu/libunistring/libunistring-${LIBUNISTRING_VERSION}.tar.gz"
@@ -16,36 +16,75 @@ OS=""
 TOOLSDIR=""
 JOBS=${JOBS:-""}
 
-
 source utils.bash
 
-function darwin_gettext_install() {
+function gettextInstall() {
   echo =================== installing gettext from ${GETTEXT_URL}
   downloadSource "${GETTEXT_URL}" "${GETTEXT_VERSION}" gettext
-  makeAndGotoBuildDir darwin gettext
-	PATH=${TOOLSDIR}/bin:$PATH ../../src/gettext-${GETTEXT_VERSION}/configure --prefix="$TOOLSDIR"
-	make ${JOBS} install
-	cd ../..
-	return 0
+  makeAndGotoBuildDir ${1} gettext
+  PATH=${TOOLSDIR}/bin:$PATH ../../src/gettext-${GETTEXT_VERSION}/configure --prefix="$TOOLSDIR"
+  make ${JOBS} install
+  cd ../..
+  return 0
 }
 
+function darwin_gettext_install() {
+  gettext_install darwin
+}
+
+function linux_gettext_install() {
+  gettextInstall linux
+}
+
+function libunistringInstall() {
+  echo =================== installing libunistring from ${LIBUNISTRING_URL}
+  downloadSource "${LIBUNISTRING_URL}" "${LIBUNISTRING_VERSION}" libunistring
+  makeAndGotoBuildDir ${1} libunistring
+  PATH=${TOOLSDIR}/bin:$PATH ../../src/libunistring-${LIBUNISTRING_VERSION}/configure --prefix="$TOOLSDIR"
+  make ${JOBS} install
+  cd ../..
+  return 0
+}
+
+function darwin_libunistring_install() {
+  gettext_install darwin
+}
+
+function linux_libunistring_install() {
+  gettextInstall linux
+}
 
 ###
 ### start
 ###
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" == "darwin" ]; then
   getToolsDir
+  standardLib ${OS} "${FFI_URL}" "${FFI_VERSION}" libffi
+  standardLib ${OS} "${LIBUNISTRING_URL}" "${LIBUNISTRING_VERSION}" libunistring
+
   if [ "$?" != "0" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
-  standardLib darwin "${FFI_URL}" "${FFI_VERSION}" libffi
-  standardLib darwin "${LIBUNISTRING_URL}" "${LIBUNISTRING_VERSION}" libunistring
-  standardLib darwin "${PCRE_URL}" "${PCRE_VERSION}" pcre
-  standardLib darwin "${PCRE2_URL}" "${PCRE2_VERSION}" pcre2
-  darwin_gettext_install
 else
-  echo feelings from scratch only works on Darwin right now
+  if [ "$OS" == "linux" ]; then
+    getToolsDir
+    apt-get install libffi-dev=${FFI_VERSION}-4
+    apt-get install libunistring-dev=${LIBUNISTRING_VERSION}-6
+  else
+    echo feelings from scratch only works on Darwin right now ${OS}
+  fi
+
+  ##comon packages
+  standardLib ${OS} "${PCRE_URL}" "${PCRE_VERSION}" pcre
+  standardLib ${OS} "${PCRE2_URL}" "${PCRE2_VERSION}" pcre2
+  ##different gettext
+  if [ "$OS" == "darwin" ]; then
+    darwin_gettext_install
+  else
+    linux_gettext_install
+  fi
+
 fi

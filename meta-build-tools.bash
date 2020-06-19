@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 PYTHON3_VERSION="3.8.3"
 PYTHON3_URL="https://www.python.org/ftp/python/${PYTHON3_VERSION}/Python-${PYTHON3_VERSION}.tgz"
@@ -11,24 +11,20 @@ AUTOMAKE_VERSION="1.16"
 AUTOMAKE_URL="https://ftp.gnu.org/gnu/automake/automake-${AUTOMAKE_VERSION}.tar.gz"
 LIBTOOL_VERSION="2.4.6"
 LIBTOOL_URL="http://mirrors.ocf.berkeley.edu/gnu/libtool/libtool-${LIBTOOL_VERSION}.tar.gz"
+AUTOGEN_VERSION="5.18.7"
+AUTOGEN_URL="https://ftp.gnu.org/gnu/autogen/autogen-${AUTOGEN_VERSION}.tar.gz"
+GUILE_VERSION="2.2.7" #3.0.2
+GUILE_URL="https://ftp.gnu.org/gnu/guile/guile-${GUILE_VERSION}.tar.gz"
+GC_VERSION="8.0.4"
+GC_URL="https://www.hboehm.info/gc/gc_source/gc-${GC_VERSION}.tar.gz"
+GSED_VERSION="4.1f"
+GSED_URL="ftp://alpha.gnu.org/gnu/sed/sed-${GSED_VERSION}.tar.gz"
 
 OS=""
 TOOLSDIR=""
 JOBS=${JOBS:-""}
 
 source utils.bash
-
-function darwin_python3_install() {
-  echo =================== installing ${PYTHON3_URL}
-  downloadSource "${PYTHON3_URL}" "${PYTHON3_VERSION}" python3
-  makeAndGotoBuildDir darwin python3
-	PATH=${TOOLSDIR}/bin:${PATH} ../../src/Python-${PYTHON3_VERSION}/configure \
-	  --disable-shared --prefix="$TOOLSDIR"
-	make  ${JOBS} install
-	cd ../..
-	return 0
-}
-
 
 function darwin_pkgconfig_install() {
   echo =================== installing pkgconfig from ${PKGCONFIG_URL}
@@ -45,15 +41,8 @@ function darwin_pkgconfig_install() {
 
 function darwin_autoconf_install() {
   echo =================== installing autoconf from ${AUTOCONF_URL}
-  mkdir -p src
-  file="autoconf-${AUTOCONF_VERSION}.tar.gz"
-  curl -o ./src/${file} "${AUTOCONF_URL}"
-	cd src
-	tar xzf ${file}
-	builddir=../build/darwin-autoconf
-	rm -rf ${builddir}
-	mkdir -p ${builddir}
-	cd ${builddir}
+  downloadSource "${AUTOCONF_URL}" "${AUTOCONF_VERSION}" autoconf
+  makeAndGotoBuildDir darwin autoconf
   PATH=${TOOLSDIR}/bin:$PATH ../../src/autoconf-${AUTOCONF_VERSION}/configure --prefix=${TOOLSDIR}
   make ${JOBS} install
   cd ../..
@@ -62,17 +51,8 @@ function darwin_autoconf_install() {
 
 function darwin_automake_install() {
   echo =================== installing automake from ${AUTOMAKE_URL}
-  mkdir -p src
-  file="automake-${AUTOMAKE_VERSION}.tar.gz"
-  curl -o ./src/${file} "${AUTOMAKE_URL}"
-	cd src
-	tar xzf ${file}
-	builddir=../build/darwin-automake
-	rm -rf ${builddir}
-	mkdir -p ${builddir}
-	cd ${builddir}
-	mkdir -p ../build/darwin-automake
-	cd ../build/darwin-automake
+  downloadSource "${AUTOMAKE_URL}" "${AUTOMAKE_VERSION}" automake
+  makeAndGotoBuildDir darwin automake
 	#we have to get autoconf which we just installed
   PATH=${TOOLSDIR}/bin:$PATH ../../src/automake-${AUTOMAKE_VERSION}/configure --prefix=${TOOLSDIR}
   make ${JOBS} install
@@ -80,19 +60,44 @@ function darwin_automake_install() {
   return 0
 }
 
+function darwin_autogen_install() {
+  echo =================== installing autogen from ${AUTOGEN_URL}
+  downloadSource "${AUTOGEN_URL}" "${AUTOGEN_VERSION}" autogen
+  makeAndGotoBuildDir darwin autogen
+  cd ../..
+  return 0
+}
+
 function darwin_libtool_install() {
   echo =================== installing libtool from ${LIBTOOL_URL}
-  mkdir -p src
-  file="libtool-${LIBTOOL_VERSION}.tar.gz"
-  curl -o ./src/${file} "${LIBTOOL_URL}"
-	cd src
-	tar xzf ${file}
-	builddir=../build/darwin-libtool
-	rm -rf ${builddir}
-	mkdir -p ${builddir}
-	cd ${builddir}
+  downloadSource "${LIBTOOL_URL}" "${LIBTOOL_VERSION}" libtool
+  makeAndGotoBuildDir darwin libtool
 	#we have to get autoconf which we just installed
   PATH=${TOOLSDIR}/bin:${PATH} ../../src/libtool-${LIBTOOL_VERSION}/configure --prefix=${TOOLSDIR}
+  make ${JOBS} install
+  cd ../..
+  return 0
+}
+function darwin_guile_install() {
+  echo =================== installing guile from ${GUILE_URL}
+  downloadSource "${GUILE_URL}" "${GUILE_VERSION}" guile
+  makeAndGotoBuildDir darwin guile
+	#we have to get autoconf which we just installed
+  PATH=${TOOLSDIR}/bin:${PATH} LDFLAGS="-framework CoreFoundation -framework Foundation -framework AppKit" \
+    PKG_CONFIG_PATH=${TOOLSDIR}/lib/pkgconfig \
+    ../../src/guile-${GUILE_VERSION}/configure --prefix=${TOOLSDIR}
+  make ${JOBS} install
+  cd ../..
+  return 0
+}
+function darwin_autogen_install() {
+  echo =================== installing autogen from ${AUTOGEN_URL}
+  downloadSource "${AUTOGEN_URL}" "${AUTOGEN_VERSION}" autogen
+  makeAndGotoBuildDir darwin autogen
+	#we have to get autoconf which we just installed
+  PATH=${TOOLSDIR}/bin:${PATH} LDFLAGS="-framework CoreFoundation -framework Foundation -framework AppKit" \
+    PKG_CONFIG_PATH=${TOOLSDIR}/lib/pkgconfig \
+    ../../src/autogen-${AUTOGEN_VERSION}/configure --prefix=${TOOLSDIR}
   make ${JOBS} install
   cd ../..
   return 0
@@ -103,18 +108,22 @@ function darwin_libtool_install() {
 ##
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+echo os is ${OS}
+if [ "$OS" == "darwin" ]; then
   getToolsDir
   if [ "$?" != "0" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
-  simpleLib darwin ${PYTHON3_URL} ${PYTHON_VERSION} python3
-  darwin_python3_install
+  standardLib darwin "${PYTHON3_URL}" "${PYTHON3_VERSION}" python3 Python-
   darwin_pkgconfig_install
   darwin_autoconf_install
   darwin_automake_install
+  standardLib darwin "${GC_URL}" "${GC_VERSION}" gc
+  standardLib darwin "${GSED_URL}" "${GSED_VERSION}" sed
   darwin_libtool_install
+  darwin_guile_install
+  standardLib darwin "${AUTOGEN_URL}" "${AUTOGEN_VERSION}" autogen
 else
-	echo feelings from scratch only works on Darwin right now
+	echo feelings from scratch only works on Darwin right now xxx
 fi

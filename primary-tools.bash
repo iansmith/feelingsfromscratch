@@ -35,7 +35,7 @@ function darwin_binutils_install() {
 ##
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" == "darwin" ]; then
   getToolsDir
   if [ "$?" != "0" ]; then
     echo unable to determine where the tools dir is, aborting

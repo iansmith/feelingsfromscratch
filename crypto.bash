@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 OPENSSL_VERSION="1_1_1g"
 OPENSSL_URL="https://github.com/openssl/openssl/archive/OpenSSL_${OPENSSL_VERSION}.tar.gz"
@@ -68,7 +68,7 @@ function darwin_gnutls_install() {
   LDFLAGS="-L${TOOLSDIR}/lib -v -read_only_relocs suppress" CFLAGS="-I${TOOLSDIR}/include" \
     PATH=${TOOLSDIR}/bin:$PATH PKG_CONFIG_PATH=${TOOLSDIR}/lib/pkgconfig \
     ../../src/gnutls-${GNUTLS_VERSION}/configure \
-    --prefix="$TOOLSDIR" --enable-openssl-compatibility --with-pic
+    --prefix="$TOOLSDIR" --enable-openssl-compatibility --with-pic --disable-guile
   make ${JOBS} install
   cd ../..
   return 0
@@ -90,21 +90,21 @@ function darwin_nettle_install() {
 ###
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" == "darwin" ]; then
   getToolsDir
   if [ "$?" != "0" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
-#  darwin_openssl_install darwin64-x86_64-cc
-#  standardLib darwin "${TASN1_URL}" "${TASN1_VERSION}" libtasn1
-#  darwin_p11kit_install
-#  standardLib darwin "${IDN_URL}" "${IDN_VERSION}" libidn2
-#  darwin_nettle_install
-#  darwin_unbound_install
+  darwin_openssl_install darwin64-x86_64-cc
+  standardLib darwin "${TASN1_URL}" "${TASN1_VERSION}" libtasn1
+  darwin_p11kit_install
+  standardLib darwin "${IDN_URL}" "${IDN_VERSION}" libidn2
+  darwin_nettle_install
+  darwin_unbound_install
   darwin_gnutls_install
-#  echo "=========== using WGET to test that our crypto libs are ok"
-#  standardLib darwin "${WGET_URL}" "${WGET_VERSION}" wget2
+  echo "=========== using WGET to test that our crypto libs are ok"
+  standardLib darwin "${WGET_URL}" "${WGET_VERSION}" wget2
 
 else
   echo feelings from scratch only works on Darwin right now

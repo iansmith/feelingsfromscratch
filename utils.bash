@@ -13,12 +13,15 @@ function getOS() {
     echo unable to determine OS, uname -s returned nothing
     exit 1
   fi
-
   if [ "$os" != "Darwin" ]; then
-    echo current feelings from scratch only works on Darwin
-    exit 1
+    if [ "$os" != "Linux" ]; then
+      echo currently feelings from scratch only works on Darwin and Linux
+      exit 1
+    fi
+    OS="linux"
+  else
+    OS="darwin"
   fi
-  OS=$os
   return 0
 }
 

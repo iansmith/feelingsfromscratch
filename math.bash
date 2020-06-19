@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 
 GMP_VERSION="6.2.0"
@@ -31,17 +31,28 @@ function darwin_cloog_install() {
   return 0
 }
 
+function darwin_gmp_install() {
+  echo =================== installing gmp from ${GMP_URL}
+  downloadSource "${GMP_URL}" "${GMP_VERSION}" gmp
+  makeAndGotoBuildDir darwin gmp
+  PATH=${TOOLSDIR}/bin:$PATH ../../src/gmp-${GMP_VERSION}/configure \
+    --prefix="$TOOLSDIR"
+  make ${JOBS} install
+  cd ../..
+  return 0
+}
 ###
 ### start
 ###
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" == "darwin" ]; then
   getToolsDir
   if [ "$?" != "0" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
+  darwin_gmp_install
   standardLib darwin "${GMP_URL}" "${GMP_VERSION}" gmp
   standardLibWithGmp darwin "${MPFR_URL}" "${MPFR_VERSION}" mpfr
   standardLibWithGmp darwin "${ISL_URL}" "${ISL_VERSION}" isl

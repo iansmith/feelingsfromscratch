@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 EXPAT_VERSION="2.2.9"
 EXPAT_VERSION_UNDERSCORE="2_2_9"
@@ -77,7 +77,7 @@ function darwin_bzip2_install() {
 ###
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" == "darwin" ]; then
   getToolsDir
   if [ "$?" != "0" ]; then
     echo unable to determine where the tools dir is, aborting

@@ -1,3 +1,5 @@
+#!/bin/bash
+set -e
 #
 # For the impatient
 #
@@ -13,7 +15,7 @@ echo setting your path to "$PATH" for safe building
 ###
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" == "darwin" ]; then
   getToolsDir
   if [ "$?" != "0" ]; then
     echo unable to determine where the tools dir is, aborting

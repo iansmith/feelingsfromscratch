@@ -31,7 +31,7 @@ function darwin_bootstrap_go() {
 ##
 
 getOS
-if [ "$OS" == "Darwin" ]; then 
+if [ "$OS" == "darwin" ]; then
 	darwin_bootstrap_go
 	if [ "$?" != "0" ]; then
 		exit 1

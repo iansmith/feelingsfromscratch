@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 CMAKE_VERSION="3.17.3"
 CMAKE_URL="https://codeload.github.com/Kitware/CMake/tar.gz/v${CMAKE_VERSION}"
@@ -96,7 +96,7 @@ function darwin_cmake_install() {
 ##
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" == "darwin" ]; then
   getToolsDir
   if [ "$?" != "0" ]; then
     echo unable to determine where the tools dir is, aborting

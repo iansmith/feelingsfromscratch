@@ -23,7 +23,7 @@ function darwin_tinygo_install() {
 ##
 
 getOS
-if [ "$OS" == "Darwin" ]; then
+if [ "$OS" == "darwin" ]; then
 	darwin_tinygo_install
 	if [ "$?" != "0" ]; then
 		exit 1
