@@ -1,0 +1,11 @@
+--- src/autogen-5.18.16/config/mk-shdefs.in.new	2020-06-19 12:40:18.000000000 -0400
++++ src/autogen-5.18.16/config/mk-shdefs.in	2020-06-19 12:16:51.000000000 -0400
+@@ -130,7 +130,7 @@
+ 
+ set -x
+ exec 9>&2
+-tmp=$(mktemp -d /tmp/shdefs-XXXXXXXXX)
++tmp=$(mktemp --suffix=.tdir -d /tmp/shdefs-XXXXXXXXX)
+ exec 2>> $tmp/mk-shdef.log
+ init $0 $1
+ mk_config

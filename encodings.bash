@@ -3,9 +3,7 @@ set -e
 
 EXPAT_VERSION="2.2.9"
 EXPAT_VERSION_UNDERSCORE="2_2_9"
-EXPAT_URL="https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION_UNDERSCORES}/expat-${EXPAT_VERSION}.tar.gz"
-JSONCPP_VERSION="1.9.3"
-JSONCPP_URL="https://github.com/open-source-parsers/jsoncpp/archive/${JSONCPP_VERSION}.tar.gz"
+EXPAT_URL="https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION_UNDERSCORE}/expat-${EXPAT_VERSION}.tar.gz"
 ZLIB_VERSION="1.2.11"
 ZLIB_URL="https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz"
 BZIP2_VERSION="1.0.8"
@@ -30,16 +28,6 @@ function darwin_expat_install() {
   return 0
 }
 
-function darwin_jsoncpp_install() {
-  echo =================== installing libjsoncpp from ${JSONCPP_URL}
-  downloadSource "${JSONCPP_URL}" "${JSONCPP_VERSION}" jsoncpp
-  makeAndGotoBuildDir darwin jsoncpp
-  PATH=${TOOLSDIR}/bin:$PATH meson --prefix="$TOOLSDIR" \
-    -Ddefault_library=static . ../../src/jsoncpp-${JSONCPP_VERSION}
-  PATH=${TOOLSDIR}/bin:$PATH ninja -C . install
-  cd ../..
-  return 0
-}
 
 function darwin_zlib_install() {
   echo =================== installing zlib from ${ZLIB_URL}
@@ -64,7 +52,7 @@ function darwin_xz_install() {
 #must build in tree, it's shell scripts
 function darwin_bzip2_install() {
   echo =================== installing bzip2 from ${BZIP2_URL}
-  downloadSource "${LIBARCHIVE_URL}" "${LIBARCHIVE_VERSION}" libarchive
+  downloadSource "${BZIP2_URL}" "${BZIP2E_VERSION}" libarchive
   cd src/bzip2-${BZIP2_VERSION}
   PATH=${TOOLSDIR}/bin:$PATH make #yes, must be two steps, dont use jobs
   PATH=${TOOLSDIR}/bin:$PATH make install PREFIX="$TOOLSDIR"
@@ -83,11 +71,10 @@ if [ "$OS" == "darwin" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
-  standardLib darwin "${ZLIB_URL}" "${ZLIB_VERSION}" zlib
+  darwin_zlib_install
   standardLib darwin "${XZ_URL}" "${XZ_VERSION}" xz
   standardLib darwin "${EXPAT_URL}" "${EXPAT_VERSION}" expat
   darwin_bzip2_install
-  darwin_jsoncpp_install
 
 else
   echo feelings from scratch only works on Darwin right now

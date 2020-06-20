@@ -53,10 +53,9 @@ if [ "$OS" == "darwin" ]; then
     exit 1
   fi
   darwin_gmp_install
-  standardLib darwin "${GMP_URL}" "${GMP_VERSION}" gmp
-  standardLibWithGmp darwin "${MPFR_URL}" "${MPFR_VERSION}" mpfr
-  standardLibWithGmp darwin "${ISL_URL}" "${ISL_VERSION}" isl
-  standardLibWithGmp darwin "${MPC_URL}" "${MPC_VERSION}" mpc
+  standardLibWithGmp darwin "with-gmp" "${MPFR_URL}" "${MPFR_VERSION}" mpfr
+  standardLibWithGmp darwin "with-gmp-prefix" "${ISL_URL}" "${ISL_VERSION}" isl
+  standardLibWithGmp darwin "with-gmp" "${MPC_URL}" "${MPC_VERSION}" mpc
   darwin_cloog_install
 else
   echo feelings from scratch only works on Darwin right now

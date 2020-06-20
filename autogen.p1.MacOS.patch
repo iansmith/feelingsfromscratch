@@ -1,0 +1,11 @@
+--- src/autogen-5.18.16/build-aux/run-ag.sh.new	2020-06-19 12:39:55.000000000 -0400
++++ src/autogen-5.18.16/build-aux/run-ag.sh	2020-06-19 12:16:16.000000000 -0400
+@@ -45,7 +45,7 @@
+   return 0
+ }
+ 
+-STAMP_TEMP_DIR=$(mktemp -d /tmp/run-ag-XXXXXXXX)
++STAMP_TEMP_DIR=$(mktemp --suffix=.tdir -d /tmp/run-ag-XXXXXXXX)
+ exec 9>&2 2>> ${STAMP_TEMP_DIR}/mk-stamps.log
+ VERBOSE=1
+ 

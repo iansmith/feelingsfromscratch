@@ -1,3 +1,12 @@
+OS=""
+TOOLSDIR=""
+JOBS=${JOBS:-""}
+SILENT=${SILENT:-""}
+WARN=""
+if [ "${SILENT}" == "--silent" ]; then
+  WARN="-w"
+fi
+
 
 function getToolsDir() {
   mkdir -p tools
@@ -55,8 +64,8 @@ function standardLibWithGmp {
   fi
   downloadSource "${3}" "${4}" "${5}"
   makeAndGotoBuildDir ${1} "${5}"
-  PATH=${TOOLSDIR}/bin:$PATH ../../src/${altname}${4}/configure --disable-shared \
-  --${2}=${TOOLSDIR} --prefix="$TOOLSDIR"
+  PATH=${TOOLSDIR}/bin:$PATH CFLAGS=${WARN} ../../src/${altname}${4}/configure --disable-shared \
+  --${2}=${TOOLSDIR} --prefix="$TOOLSDIR" ${SILENT}
   make ${JOBS} install
   cd ../..
   return 0
@@ -72,8 +81,10 @@ function standardLib() {
   fi
   downloadSource "${2}" "${3}" "${4}"
   makeAndGotoBuildDir ${1} "${4}"
-  PATH=${TOOLSDIR}/bin:$PATH ../../src/${altname}${3}/configure --disable-shared --prefix="$TOOLSDIR"
+  PATH=${TOOLSDIR}/bin:$PATH CFLAGS=${WARN} ../../src/${altname}${3}/configure \
+	${SILENT} --disable-shared --prefix="$TOOLSDIR" 
   make ${JOBS} install
   cd ../..
   return 0
 }
+

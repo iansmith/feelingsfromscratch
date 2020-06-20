@@ -10,12 +10,26 @@ LIBRHASH_VERSION="1.3.9"
 LIBRHASH_URL="https://github.com/rhash/RHash/archive/v${LIBRHASH_VERSION}.tar.gz"
 LIBUV_VERSION="1.38.0"
 LIBUV_URL="https://github.com/libuv/libuv/archive/v${LIBUV_VERSION}.tar.gz"
+JSONCPP_VERSION="1.9.3"
+JSONCPP_URL="https://github.com/open-source-parsers/jsoncpp/archive/${JSONCPP_VERSION}.tar.gz"
 
 OS=""
 TOOLSDIR=""
 JOBS=${JOBS:-""}
 
 source utils.bash
+
+
+function darwin_jsoncpp_install() {
+  echo =================== installing libjsoncpp from ${JSONCPP_URL}
+  downloadSource "${JSONCPP_URL}" "${JSONCPP_VERSION}" jsoncpp
+  makeAndGotoBuildDir darwin jsoncpp
+  PATH=${TOOLSDIR}/bin:$PATH meson --prefix="$TOOLSDIR" \
+    -Ddefault_library=static . ../../src/jsoncpp-${JSONCPP_VERSION}
+  PATH=${TOOLSDIR}/bin:$PATH ninja -C . install
+  cd ../..
+  return 0
+}
 
 
 function darwin_ninja_install() {
@@ -104,6 +118,7 @@ if [ "$OS" == "darwin" ]; then
   fi
   darwin_meson_install
   darwin_ninja_install
+  darwin_jsoncpp_install
   standardLib darwin "${LIBARCHIVE_URL}" "${LIBARCHIVE_VERSION}" libarchive
   darwin_librhash_install
   darwin_libuv_install

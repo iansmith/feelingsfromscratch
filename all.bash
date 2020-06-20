@@ -21,10 +21,10 @@ if [ "$OS" == "darwin" ]; then
     echo unable to determine where the tools dir is, aborting
     exit 1
   fi
-  ./meta-build-tools.bash
-  ./gnu-misc.bash
+#  ./math.bash
+#  ./gnu-misc.bash
+#  ./meta-build-tools.bash
   ./encodings.bash
-  ./math.bash
   ./crypto.bash
   ./build-tools.bash
   ./primary-tools.bash

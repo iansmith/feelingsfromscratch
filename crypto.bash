@@ -32,7 +32,8 @@ function darwin_openssl_install() {
   altname="OpenSSL_${OPENSSL_VERSION}"
   PATH=${TOOLSDIR}/bin:$PATH ../../src/openssl-${altname}/Configure \
     --prefix="${TOOLSDIR}" --openssldir="${TOOLSDIR}" "${1}"
-  make ${JOBS} install
+  make ${JOBS} 
+  make install_dev
   cd ../..
   return 0
 }
@@ -97,7 +98,7 @@ if [ "$OS" == "darwin" ]; then
     exit 1
   fi
   darwin_openssl_install darwin64-x86_64-cc
-  standardLib darwin "${TASN1_URL}" "${TASN1_VERSION}" libtasn1
+  #standardLib darwin "${TASN1_URL}" "${TASN1_VERSION}" libtasn1
   darwin_p11kit_install
   standardLib darwin "${IDN_URL}" "${IDN_VERSION}" libidn2
   darwin_nettle_install
