@@ -1,0 +1,18 @@
+--- src/gcc-10.1.0/gcc/config/aarch64/aarch64-builtins.c	2020-06-21 12:20:12.000000000 -0400
++++ src/gcc-10.1.0/gcc/config/aarch64/aarch64-builtins.c.new	2020-06-21 12:27:07.000000000 -0400
+@@ -1210,6 +1210,7 @@
+ static void
+ aarch64_init_memtag_builtins (void)
+ {
++#if 0
+   tree fntype = NULL;
+ 
+ #define AARCH64_INIT_MEMTAG_BUILTINS_DECL(F, N, I, T) \
+@@ -1243,6 +1244,7 @@
+   AARCH64_INIT_MEMTAG_BUILTINS_DECL (GET_TAG, get_tag, ldg, fntype);
+ 
+ #undef AARCH64_INIT_MEMTAG_BUILTINS_DECL
++#endif
+ }
+ 
+ /* Initialize all builtins in the AARCH64_BUILTIN_GENERAL group.  */
