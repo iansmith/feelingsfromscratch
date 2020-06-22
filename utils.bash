@@ -166,12 +166,21 @@ function standardLib() {
     PATH=${TOOLSDIR}/bin:$PATH ./autogen.sh
     cd ../..
   fi
+  #awful that patch makes us do this, but blame larry wall
+  set +e
   # for any of our local patches
   for i in ${patches[@]}; do
-    echo patch "${i}"
-    echo applying patch $i
-    patch -p 0 < "$i"
+    dry=`patch -p0 -N --dry-run --silent -f < "$i"`
+    if [ "${dry}" == "" ]; then
+      echo patch "${i}"
+      echo =================== applying patch $i
+      patch -p 0 < "$i"
+    else
+      echo =================== detected preiously applied patch $i
+    fi
   done
+  set -e # normal service resumes
+
   makeAndGotoBuildDir ${platform} "${pkg}"
   echo =================== builing ${pkg}
   LIBTOOLIZE_OPTIONS=${LIBTOOL_SILENT} \

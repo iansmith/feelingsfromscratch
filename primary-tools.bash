@@ -70,6 +70,7 @@ declare -a configOpts
 function setupConfigOptsCrossCompile() {
   local os
   local tool
+
   os=${1}
   tool=${2}
 
@@ -83,32 +84,18 @@ function setupConfigOptsCrossCompile() {
   fi
   configOpts+=("--target=aarch64-elf")
   configOpts+=("--prefix=${TOOLSDIR}")
-  configOpts+=("--disable-shared")
-  configOpts+=("--enable-libmpx")
   configOpts+=("--with-system-zlib")
   configOpts+=("--with-system-isl")
-  configOpts+=("--with-system-isl")
-  configOpts+=("--enable-__cxa_atexit")
-  configOpts+=("-disable-libunwind-exceptions")
-  configOpts+=("--enable-clocale=gnu")
-  configOpts+=("--disable-libstdcxx-pch")
-  configOpts+=("--disable-libssp")
-  configOpts+=("--enable-plugin")
-  configOpts+=("--enable-lto")
   configOpts+=("--enable-install-libiberty")
   configOpts+=("--with-linker-hash-style=gnu")
-  configOpts+=("--enable-gnu-indirect-function")
   configOpts+=("--disable-multilib")
-  configOpts+=("--disable-werror")
   configOpts+=("--enable-checking=release")
-  configOpts+=("--enable-default-pie")
-  configOpts+=("--enable-default-ssp")
-  configOpts+=("--enable-gnu-unique-object")
+  configOpts+=("--disable-shared")
   if [ "tool" == "binutils" ]; then
     configOpts+=("--enable-ld")
     configOpts+=("--enable-gold")
   else
-    configOpts+=("--enable-languages=c")
+    configOpts+=("--without-headers")
     configOpts+=("--with-isl")
     configOpts+=("--with-gmp-lib=${TOOLSDIR}/lib")
     configOpts+=("--with-gmp-include=${TOOLSDIR}/include")
@@ -119,51 +106,9 @@ function setupConfigOptsCrossCompile() {
   fi
 
   if [ "$os" == "darwin" ]; then
-    configOpts+=("--with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk")
+    configOpts+=("--with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk")
   fi
 }
-
-function binutils_install() {
-  echo =================== installing binutils from ${BINUTILS_URL}
-  downloadSource "${BINUTILS_URL}" "${BINUTILS_VERSION}" binutils binutils
-  makeAndGotoBuildDir ${1} binutils
-  PATH=${TOOLSDIR}/bin:${PATH} ../../src/binutils-${BINUTILS_VERSION}/configure \
-    --host=x86_64-linux-gnu --build=x86_64-linux-gnu --target=aarch64-elf --prefix=${TOOLDIR} \
-    --disable-shared --enable-libmpx --with-system-zlib  --with-system-isl \
-    --enable-__cxa_atexit -disable-libunwind-exceptions --enable-clocale=gnu \
-    --disable-libstdcxx-pch --disable-libssp --enable-plugin \
-    --enable-lto --enable-install-libiberty --with-linker-hash-style=gnu \
-    --enable-gnu-indirect-function --disable-multilib --disable-werror \
-    --enable-checking=release --enable-default-pie \
-    --enable-default-ssp --enable-gnu-unique-object --enable-ld --enable-gold
-  make ${JOBS}
-  make install
-  cd ../..
-  return 0
-}
-function gcc_install() {
-  echo =================== installing gcc from ${GCC_URL}
-  downloadSource "${GCC_URL}" "${GCC_VERSION}" gcc gcc
-  makeAndGotoBuildDir ${1} gcc
-  PATH=${TOOLSDIR}/bin:${PATH} ../../src/gcc-${GCC_VERSION}/configure \
-    --host=x86_64-linux-gnu --build=x86_64-linux-gnu --target=aarch64-elf --prefix=${TOOLDIR} \
-    --enable-languages=c --enable-threads=posix --enable-libmpx --with-system-zlib \
-    --with-isl --enable-__cxa_atexit --disable-libunwind-exceptions \
-    --enable-clocale=gnu --disable-libstdcxx-pch --disable-libssp --enable-plugin \
-    --disable-linker-build-id --enable-lto --enable-install-libiberty \
-    --with-linker-hash-style=gnu --with-gnu-ld --enable-gnu-indirect-function \
-    --disable-multilib --disable-werror --enable-checking=release --enable-default-pie \
-    --enable-default-ssp --enable-gnu-unique-object \
-    --with-gmp-lib=${TOOLSDIR}/lib --with-gmp-include=${TOOLSDIR}/include \
-    --with-mpfr-lib=${TOOLSDIR}/lib --with-mpfr-include=${TOOLSDIR}/include \
-    --with-mpc-lib=${TOOLSDIR}/lib --with-mpc-include=${TOOLSDIR}/include
-    //--with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
-  make ${JOBS}
-  make install
-  cd ../..
-  return 0
-}
-
 
 ##
 ## START
@@ -204,7 +149,8 @@ fi
 #exit 0
 #gcc_install ${OS}
 setupConfigOptsCrossCompile ${OS}  gcc
-standardLib "${OS}" "${GCC_URL}" "${GCC_VERSION}" gcc -p=aarch64-builtins.p1.patch ${configOpts[*]}
+standardLib "${OS}" "${GCC_URL}" "${GCC_VERSION}" gcc \
+  -p=aarch64-builtins.p1.patch ${configOpts[*]}
 exit 0
 
 #standardLib ${OS} ${QEMU_URL} ${QEMU_VERSION} --target-list=aarch64-softmmu --enable-debug
