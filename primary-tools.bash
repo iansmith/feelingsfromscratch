@@ -20,7 +20,8 @@ CLOOG_VERSION="0.18.4"
 CLOOG_URL="http://www.bastoul.net/cloog/pages/download/cloog-${CLOOG_VERSION}.tar.gz"
 MPC_VERSION="1.1.0"
 MPC_URL="https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz"
-
+NEWLIB_VERSION="3.3.0"
+NEWLIB_URL="ftp://sourceware.org/pub/newlib/newlib-${NEWLIB_VERSION}.tar.gz"
 
 
 source utils.bash
@@ -65,6 +66,33 @@ function pkgconfig_install() {
   return 0
 }
 
+function gcc_stage1_install() {
+  local os
+  local url=${GCC_URL}
+  local version=${GCC_VERSION}
+  local pkg=gcc
+
+  os=${1}
+  url=${PKGCONFIG_URL}
+  version=${PKGCONFIG_VERSION}
+  pkg=pkg-config
+  echo =================== installing gcc_stage from ${url}
+  downloadSource "${url}" "${version}" ${pkg} ${pkg}
+  makeAndGotoBuildDir ${os} ${pkg}
+
+  PATH=${TOOLSDIR}/bin:${PATH} \
+    PKG_CONFIG_LIBDIR=${TOOLSDIR}/lib/pkgconfig \
+    ../../src/${pkg}-${version}/configure --prefix=${TOOLSDIR} --with-internal-glib
+
+  setupConfigOptsCrossCompile ${OS}  gcc
+  mkdir -p libiberty libcpp fixincludes
+  PATH=${TOOLSDIR}/bin:${PATH} make ${JOBS} all-gcc
+  PATH=${TOOLSDIR}/bin:${PATH} make ${JOBS} install-gcc
+
+  cd ../..
+  return 0
+}
+
 declare -a configOpts
 
 function setupConfigOptsCrossCompile() {
@@ -75,28 +103,37 @@ function setupConfigOptsCrossCompile() {
   tool=${2}
 
   configOpts=()
+  configOpts+=("-v")
   if [ "$os" == "darwin" ]; then
     configOpts+=("--host=x86_64-apple-darwin19.5.0")
-    configOpts+=("--build=x86_64-apple-darwin19.5.0")
   else
     configOpts+=("--host=x86_64-linux-gnu")
-    configOpts+=("--build=x86_64-linux-gnu ")
   fi
   configOpts+=("--target=aarch64-elf")
   configOpts+=("--prefix=${TOOLSDIR}")
   configOpts+=("--with-system-zlib")
-  configOpts+=("--with-system-isl")
   configOpts+=("--enable-install-libiberty")
   configOpts+=("--with-linker-hash-style=gnu")
-  configOpts+=("--disable-multilib")
+  configOpts+=("--enable-multilib")
   configOpts+=("--enable-checking=release")
+  configOpts+=("--disable-nls")
   configOpts+=("--disable-shared")
+  configOpts+=("--disable-threads")
+  configOpts+=("--with-gcc")
+  configOpts+=("--with-gnu-as")
+  configOpts+=("--with-gnu-ld")
   if [ "tool" == "binutils" ]; then
     configOpts+=("--enable-ld")
     configOpts+=("--enable-gold")
   else
-    configOpts+=("--without-headers")
+    configOpts+=("--with-headers=src/newlib-${NEWLIB_VERSION}/newlib/libc/include")
     configOpts+=("--with-isl")
+    configOpts+=("--enable-languages=c")
+    configOpts+=("--with-newlib")
+    configOpts+=("--disable-libssp")
+    configOpts+=("--disable-libstdcxx-pch")
+    configOpts+=("--disable-libmudflap")
+    configOpts+=("--disable-libgomp")
     configOpts+=("--with-gmp-lib=${TOOLSDIR}/lib")
     configOpts+=("--with-gmp-include=${TOOLSDIR}/include")
     configOpts+=("--with-mpfr-lib=${TOOLSDIR}/lib")
@@ -105,9 +142,9 @@ function setupConfigOptsCrossCompile() {
     configOpts+=("--with-mpc-include=${TOOLSDIR}/include")
   fi
 
-  if [ "$os" == "darwin" ]; then
-    configOpts+=("--with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk")
-  fi
+#  if [ "$os" == "darwin" ]; then
+#    configOpts+=("--with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk")
+#  fi
 }
 
 ##
@@ -125,29 +162,30 @@ if [ "${TOOLSDIR}" == "" ]; then
 fi
 
 #pkgconfig_install ${OS}
-
-export PATH=$FFS/tools/bin:$PATH
-export LD_LIBRARY_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu
-export DYLD_LIBRARY_PATH=$FFS/tools/lib:/usr/local/lib:/usr/lib
-if [ "$OS" == "linux" ]; then
-  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
-else
-  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/local/lib/pkgconfig
-fi
-
-
+#
+#export PATH=$FFS/tools/bin:$PATH
+#export LD_LIBRARY_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu
+#export DYLD_LIBRARY_PATH=$FFS/tools/lib:/usr/local/lib:/usr/lib
+#if [ "$OS" == "linux" ]; then
+#  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
+#else
+#  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/local/lib/pkgconfig
+#fi
+#
+#
 #standardLib "${OS}" "${GMP_URL}" "${GMP_VERSION}" gmp -n -d
 #standardLib ${OS} "${MPFR_URL}" "${MPFR_VERSION}" mpfr -n "--with-gmp=${TOOLSDIR}"
 #standardLib ${OS} "${ISL_URL}" "${ISL_VERSION}" isl "--with-gmp-prefix=${TOOLSDIR}"
 #standardLib ${OS} "${MPC_URL}" "${MPC_VERSION}" mpc "--with-gmp=${TOOLSDIR}"
 #standardLib ${OS} "${CLOOG_URL}" "${CLOOG_VERSION}" cloog \
 #  "--with-gmp-prefix=${TOOLSDIR}" "--with-isl-builddir=../darwin-isl"
-
-#binutils_install ${OS}
+#
+##just the source of newlib, used to build gcc later
+#downloadSource "${NEWLIB_URL}" "${NEWLIB_VERSION}" newlib newlib
 #setupConfigOptsCrossCompile ${OS}  binutils
 #standardLib "${OS}" "${BINUTILS_URL}" "${BINUTILS_VERSION}" binutils ${configOpts[@]}
-#exit 0
-#gcc_install ${OS}
+#gcc_stage1_install ${OS}
+
 setupConfigOptsCrossCompile ${OS}  gcc
 standardLib "${OS}" "${GCC_URL}" "${GCC_VERSION}" gcc \
   -p=aarch64-builtins.p1.patch ${configOpts[*]}
