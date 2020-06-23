@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-
 PKGCONFIG_VERSION="0.29.2"
 PKGCONFIG_URL="https://pkg-config.freedesktop.org/releases/pkg-config-${PKGCONFIG_VERSION}.tar.gz"
 BINUTILS_VERSION="2.34"
@@ -22,14 +21,21 @@ MPC_VERSION="1.1.0"
 MPC_URL="https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz"
 NEWLIB_VERSION="3.3.0"
 NEWLIB_URL="ftp://sourceware.org/pub/newlib/newlib-${NEWLIB_VERSION}.tar.gz"
-
+GDB_VERSION="9.2"
+GDB_URL="https://ftp.gnu.org/gnu/gdb/gdb-${GDB_VERSION}.tar.gz"
+XZ_VERSION="5.2.5"
+XZ_URL="https://sourceforge.net/projects/lzmautils/files/xz-${XZ_VERSION}.tar.gz/download"
+GLIB_SHORT="2.65"
+GLIB_VERSION="2.65.0"
+GLIB_URL="https://ftp.gnome.org/pub/gnome/sources/glib/${GLIB_SHORT}/glib-${GLIB_VERSION}.tar.xz"
+GO_VERSION="1.14.4"
+GO_URL="https://dl.google.com/go/go${GO_VERSION}.src.tar.gz"
 
 source utils.bash
-
-
+declare -a configOpts
 
 ###
-### start
+### check the vars  for state from utils.sh
 ###
 
 if [ "${ARGS_PARSED}" == "" ]; then
@@ -42,16 +48,27 @@ if [ "${TOOLSDIR}" == "" ]; then
   getToolsDir
 fi
 
-function pkgconfig_install() {
-  local os
-  local url
-  local version
-  local pkg
+#
+# bootstrap go compiler
+#
+function hostgo_install() {
+  local os=${1}
+  downloadSource "${GO_URL}" "${GO_VERSION}" "go" "go"
+  mv src/go hostgo
+  cd hostgo/src
+  ./all.bash
+  cd ../..
+}
 
-  os=${1}
-  url=${PKGCONFIG_URL}
-  version=${PKGCONFIG_VERSION}
-  pkg=pkg-config
+#
+# special installer for pkg_config because needs special env vars
+#
+function pkgconfig_install() {
+  local os=${1}
+  local url=${PKGCONFIG_URL}
+  local version=${PKGCONFIG_VERSION}
+  local pkg=pkg-config
+
   echo =================== installing pkgconfig from ${url}
   downloadSource "${url}" "${version}" ${pkg} ${pkg}
   makeAndGotoBuildDir ${os} ${pkg}
@@ -66,44 +83,131 @@ function pkgconfig_install() {
   return 0
 }
 
-function gcc_stage1_install() {
-  local os
-  local url=${GCC_URL}
-  local version=${GCC_VERSION}
-  local pkg=gcc
-
-  os=${1}
-  url=${PKGCONFIG_URL}
-  version=${PKGCONFIG_VERSION}
-  pkg=pkg-config
-  echo =================== installing gcc_stage from ${url}
-  downloadSource "${url}" "${version}" ${pkg} ${pkg}
-  makeAndGotoBuildDir ${os} ${pkg}
-
-  PATH=${TOOLSDIR}/bin:${PATH} \
-    PKG_CONFIG_LIBDIR=${TOOLSDIR}/lib/pkgconfig \
-    ../../src/${pkg}-${version}/configure --prefix=${TOOLSDIR} --with-internal-glib
-
-  setupConfigOptsCrossCompile ${OS}  gcc
-  mkdir -p libiberty libcpp fixincludes
-  PATH=${TOOLSDIR}/bin:${PATH} make ${JOBS} all-gcc
-  PATH=${TOOLSDIR}/bin:${PATH} make ${JOBS} install-gcc
-
-  cd ../..
-  return 0
+#
+# ask user if we can proceed
+#
+function canContinue() {
+  read -p "Continue [y/n]? " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo aborting at user request.
+    exit 1
+  fi
+  return
 }
 
-declare -a configOpts
+#
+# check that their world is not in a broken state and they also have not run
+# this script before
+#
+function pregame() {
+  local os=${1}
 
+  if [ "${os}" == "darwin" ]; then
+    if [ "$DYLD_LIBRARY_PATH" != "" ]; then
+      echo ====================================================================
+      echo running this script with DYLD_LIBRARY_PATH set is likely to create
+      echo key feelings tools \(binaries\) that have unexpected dependencies
+      echo outside this tree. this is unlikely to be what you want.
+      canContinue
+      echo
+      echo
+    fi
+  else
+    if [ "LD_LIBRARY_PATH" != "" ]; then
+      echo ====================================================================
+      echo running this script with LD_LIBRARY_PATH set is likely to create
+      echo key feelings tools \(binaries\) that have unexpected dependencies
+      echo outside this tree. this is unlikely to be what you want.
+      canContinue
+      echo
+      echo
+    fi
+  fi
+
+  if [ "${PKG_CONFIG_PATH}" != "" ]; then
+    echo ====================================================================
+    echo your PKG_CONFIG_PATH variable is set. This can produce unexpected
+    echo errors when this script cannot find the versions of libraries that
+    echo it expects in the copy of pkg-config it installs. Having this variable
+    echo set before running this script is likely not what you want and is
+    echo likely a leftover from running this script previously.
+    canContinue
+    echo
+    echo
+  fi
+
+  declare -a already
+  for i in qemu-system-aarch64 aarch64-elf-gdb aarch64-elf-gcc aarch64-elf-readelf aarch64-elf-objcopy; do
+    local r=$(which ${i})
+    if [ "${r}" != "n" ]; then
+      already+=(${i})
+    fi
+  done
+
+  if [ "${already[*]}" != "" ]; then
+    echo ====================================================================
+    echo we found some of the tools this script builds in your PATH:
+    echo ${already[*]}
+    if [ -f "${TOOLSDIR}/bin/${already[0]}" ]; then
+      echo
+      echo these appear to be in the place this script will install binaries
+      echo and this is usually ok.
+      echo
+      canContinue
+    else
+      echo Running this script with these tools already in your path can cause
+      echo errors when this tools builds its copy of these tools. It is likely
+      echo you have another package installed that includes these tools. It is
+      echo best to reset your PATH to make sure you do not have these in your
+      echo PATH.
+      canContinue
+    fi
+  fi
+
+  local hostgo=$(which go)
+  if [ "${hostgo}" == "" ] || [ "${hostgo}" == "go not found" ]; then
+    if [ "${HOSTGO}" != "" ]; then
+      echo ====================================================================
+      echo you have the HOSTGO variable set\! this is likely from running this
+      echo script before. Further, your HOSTGO variable does not point to a
+      echo go installation. You probably want to unset the HOSTGO variable.
+      echo
+      echo aborting, found HOSTGO variable but no bootstrap go installation in PATH
+      exit 1
+    fi
+    echo ====================================================================
+    echo we cannot find a copy of go in your PATH. This script uses a go
+    echo compiler *only* for bootstrapping the exact version of go that it
+    echo needs. You need to install a copy of go that will be found in your
+    echo PATH either via your package manager or from https://golang.org/dl/
+    echo You need a version of go that is at least version 1.4, which is
+    echo \"any modern go will do\".
+    echo
+    echo aborting, no bootstrap go compiler found in PATH
+    exit 1
+  fi
+  if [ "$HOSTGO" != "" ]; then
+    echo ====================================================================
+    echo you have the HOSTGO variable set\! this is likely from running this
+    echo script before. This is likely to cause confusion later when you
+    echo use Makefiles that expect the HOSTGO variable to point to the newly
+    echo created binaries. You need to unset the $HOSTGO variable
+    echo
+    exit 1
+  fi
+  echo
+  echo using $hostgo as bootstrap go compiler
+}
+
+#
+# helper to make the list of options for binutils and gcc easier to manage
+#
 function setupConfigOptsCrossCompile() {
-  local os
-  local tool
-
-  os=${1}
-  tool=${2}
+  local os=${1}
+  local tool=${2}
 
   configOpts=()
-  configOpts+=("-v")
   if [ "$os" == "darwin" ]; then
     configOpts+=("--host=x86_64-apple-darwin19.5.0")
   else
@@ -113,12 +217,10 @@ function setupConfigOptsCrossCompile() {
   configOpts+=("--prefix=${TOOLSDIR}")
   configOpts+=("--with-system-zlib")
   configOpts+=("--enable-install-libiberty")
-  configOpts+=("--with-linker-hash-style=gnu")
   configOpts+=("--enable-multilib")
   configOpts+=("--enable-checking=release")
   configOpts+=("--disable-nls")
   configOpts+=("--disable-shared")
-  configOpts+=("--disable-threads")
   configOpts+=("--with-gcc")
   configOpts+=("--with-gnu-as")
   configOpts+=("--with-gnu-ld")
@@ -142,26 +244,105 @@ function setupConfigOptsCrossCompile() {
     configOpts+=("--with-mpc-include=${TOOLSDIR}/include")
   fi
 
-#  if [ "$os" == "darwin" ]; then
-#    configOpts+=("--with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk")
-#  fi
 }
 
-##
-## START
-##
+#
+# explain to the user how to set their env vars
+#
+function postgame() {
+  echo ====================================================================
+  echo
+  echo with the tools now built, you probably want to set your
+  echo PKG_CONFIG_PATH to ensure that you have the pkg-config files created
+  echo by this tool first.
+  echo
+  if [ "$OS" == "linux" ]; then
+    echo "on linux this might look like this:"
+    echo 'export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig'
+  else
+    echo "on MacOS this might look like this:"
+    echo 'export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/local/lib/pkgconfig'
+  fi
+  echo
+  read -p "press a key to continue" -n 1 -r
+  echo ====================================================================
+  echo
+  echo To insure you are using the feelings version of the tools, you will want
+  echo to set your PATH to have the freshly built tools first. In some cases
+  echo we are intentially overriding already installed binaries.
+  echo
+  if [ "$OS" == "linux" ]; then
+    echo "for example, on linux this might look like this:"
+    echo 'export PATH=$FFS/tools/bin/:/usr/local/bin:/usr/bin:/bin/usr/sbin:/sbin
+  else
+    echo "for example, on MacOS this might look like this:"
+    echo 'export PATH=$FFS/tools/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+  fi
+  echo
+  read -p "press a key to continue" -n 1 -r
+  echo ====================================================================
+  echo
+  echo
+  echo You will want to make sure you get *exactly* the right version of the
+  echo libraries we have just installed by putting this scripts lib directory
+  echo first in your dynamic library path.
+  echo
+  if [ "$OS" == "linux" ]; then
+    echo "on linux this might look like this:"
+    echo 'export LD_LIBRARY_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu'
 
-if [ "${ARGS_PARSED}" == "" ]; then
-  parseArgs $*
-fi
-if [ "${OS}" == "" ]; then
-  getOS
-fi
-if [ "${TOOLSDIR}" == "" ]; then
-  getToolsDir
-fi
+  else
+    echo "on MacOS this might look like this:"
+    echo 'export DYLD_LIBRARY_PATH=$FFS/tools/lib:/usr/local/lib:/usr/lib'
+  fi
+  echo
+  read -p "press a key to continue" -n 1 -r
+  echo ====================================================================
+  echo
+  echo This script created its own copy of pkg-config to manage the libraries
+  echo whose versions are critical. You will want to be sure the pkg-config
+  echo "storage location" for .pc files has the newly constructed libarries\'
+  echo entries first.
+  echo
+  if [ "$OS" == "linux" ]; then
+    echo "on linux this might look like this:"
+    echo 'export PKG_CONFIG_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu/pkgconfig'
 
+  else
+    echo "on MacOS this might look like this:"
+    echo 'export PKG_CONFIG_PATH=$FFS/tools/lib:/usr/local/lib:/usr/lib'
+  fi
+  echo
+  read -p "press a key to continue" -n 1 -r
+  echo ====================================================================
+  echo
+  echo This script built a particular version of go that it needs for its
+  echo host programs.  You will want to set the environment variable HOSTGO
+  echo like this:
+  echo `export HOSTGO=$FFS/hostgo`
+  echo
+  read -p "press a key to continue" -n 1 -r
+  echo ====================================================================
+  echo
+  echo If you intstalled a go compiler just to bootstrap feelings, this is
+  echo a good time to remove it.
+  echo
+  echo ====================================================================
+  echo Yay! done. exit 0!
+}
+
+# sanity check
+pregame ${OS}
+
+###
+### Install procedure
+###
+#
+## pkg config has to come first
 #pkgconfig_install ${OS}
+##qemu
+#standardLib ${OS} ${QEMU_URL} ${QEMU_VERSION} qemu -d --target-list=aarch64-softmmu \
+#  --prefix=${TOOLSDIR}
 #
 #export PATH=$FFS/tools/bin:$PATH
 #export LD_LIBRARY_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu
@@ -172,23 +353,34 @@ fi
 #  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/local/lib/pkgconfig
 #fi
 #
-#
-#standardLib "${OS}" "${GMP_URL}" "${GMP_VERSION}" gmp -n -d
+## libraries we want to be controlled by us, not package manager...
+## this also means that they appear in our pkg-config, which should be
+## be first in the path of pkg-config
+#standardLib "${OS}" "${GMP_URL}" "${GMP_VERSION}" gmp -n
 #standardLib ${OS} "${MPFR_URL}" "${MPFR_VERSION}" mpfr -n "--with-gmp=${TOOLSDIR}"
 #standardLib ${OS} "${ISL_URL}" "${ISL_VERSION}" isl "--with-gmp-prefix=${TOOLSDIR}"
 #standardLib ${OS} "${MPC_URL}" "${MPC_VERSION}" mpc "--with-gmp=${TOOLSDIR}"
 #standardLib ${OS} "${CLOOG_URL}" "${CLOOG_VERSION}" cloog \
 #  "--with-gmp-prefix=${TOOLSDIR}" "--with-isl-builddir=../darwin-isl"
+#standardLib ${OS} "${XZ_URL}" "${XZ_VERSION}" xz
 #
 ##just the source of newlib, used to build gcc later
 #downloadSource "${NEWLIB_URL}" "${NEWLIB_VERSION}" newlib newlib
-#setupConfigOptsCrossCompile ${OS}  binutils
+#
+##binutils
+#setupConfigOptsCrossCompile ${OS} binutils
 #standardLib "${OS}" "${BINUTILS_URL}" "${BINUTILS_VERSION}" binutils ${configOpts[@]}
-#gcc_stage1_install ${OS}
+#
+##gcc
+#setupConfigOptsCrossCompile ${OS} gcc
+#standardLib "${OS}" "${GCC_URL}" "${GCC_VERSION}" gcc \
+#  -p=aarch64-builtins.p1.patch ${configOpts[*]}
+#
+##gdb
+#standardLib ${OS} ${GDB_URL} ${GDB_VERSION} gdb --target=aarch64-elf \
+#  --prefix=${TOOLSDIR} --disable-shared
+#
+hostgo_install ${OS}
 
-setupConfigOptsCrossCompile ${OS}  gcc
-standardLib "${OS}" "${GCC_URL}" "${GCC_VERSION}" gcc \
-  -p=aarch64-builtins.p1.patch ${configOpts[*]}
-exit 0
-
-#standardLib ${OS} ${QEMU_URL} ${QEMU_VERSION} --target-list=aarch64-softmmu --enable-debug
+# tell the user what to do now
+postgame
