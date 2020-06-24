@@ -185,7 +185,7 @@ function standardLib() {
   echo =================== builing ${pkg}
   LIBTOOLIZE_OPTIONS=${LIBTOOL_SILENT} \
     PATH=${TOOLSDIR}/bin:$PATH CFLAGS+=${WARN} \
-    PKG_CONFIG_LIBDIR=${TOOLSDIR}/lib/pkgconfig \
+    PKG_CONFIG_PATH=${TOOLSDIR}/lib/pkgconfig:${PKG_CONFIG_PATH} \
     PKG_CONFIG=${TOOLSDIR}/bin/pkg-config \
     LDFLAGS=${ldflags} \
     CFLAGS=${cflags} \

@@ -138,26 +138,38 @@ function pregame() {
     fi
   fi
 
-  if [ "${PKG_CONFIG_PATH}" != "" ]; then
+  if [ "${PKG_CONFIG_PATH}" == "" ]; then
     echo ====================================================================
-    echo your PKG_CONFIG_PATH variable is set. This can produce unexpected
-    echo errors when this script cannot find the versions of libraries that
-    echo it expects in the copy of pkg-config it installs. Having this variable
-    echo set before running this script is likely not what you want and is
-    echo likely a leftover from running this script previously.
+    echo your PKG_CONFIG_PATH variable is not set.  it frequently causes problems
+    echo with the build of qemu if you do not have this set such that the build
+    echo of qemu can find the installation of glib (version 2.54ish) that your
+    echo package manager put in place.
+    if [ "${OS}" == "darwin" ]; then
+      echo On MacOS this means setting your PKG_CONFIG_PATH to point to the
+      echo place your package manager puts *its* pkg-config `.pc` files.
+      echo This is usually
+      echo \'export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig\'
+    else
+      echo On linux this means setting your PKG_CONFIG_PATH to point to the
+      echo place your package manager puts *its* pkg-config `.pc` files.
+      echo This is usually, but not always, something like this:
+      echo \'export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig\'
+    fi
     canContinue
     echo
     echo
   fi
 
   declare -a already
+  set +e
   for i in qemu-system-aarch64 aarch64-elf-gdb aarch64-elf-gcc aarch64-elf-readelf aarch64-elf-objcopy; do
     local r
-    r=$(hash ${i})
+    r=$(command -v ${i})
     if [ "${r}" != "" ]; then
       already+=("${i}")
     fi
   done
+  set -e
 
   if [ "${already[*]}" != "" ]; then
     echo ====================================================================
@@ -181,8 +193,9 @@ function pregame() {
   fi
 
   local tmp
-  tmp=$(hash go)  #to avoid hostgo being just "true"
+  tmp=$(command -v go)  #to avoid hostgo being just "true"
   local hostgo=${tmp}
+  echo "tmp is $tmp and hostgo is $hostgo"
   if [ "${hostgo}" == "" ]; then
     # shellcheck disable=SC2153
     if [ "${HOSTGO}" != "" ]; then
@@ -246,7 +259,7 @@ function setupConfigOptsCrossCompile() {
   configOpts+=("--with-gnu-ld")
   if [ "${tool}" == "binutils" ]; then
     configOpts+=("--enable-ld")
-    configOpts+=("--enable-gold")
+    #configOpts+=("--enable-gold")
   else
     configOpts+=("--with-headers=src/newlib-${NEWLIB_VERSION}/newlib/libc/include")
     configOpts+=("--with-isl")
@@ -358,6 +371,17 @@ function postgame() {
   echo a good time to remove it.
   read -p "press a key to continue" -n 1 -r
   echo
+  if [ "${OS}" == "darwin" ]; then
+    echo ====================================================================
+    echo
+    echo You will need to follow the intstructions at the URL below to codesign
+    echo your debugger \'"${TOOLSDIR}/bin/aarch64-bin-gdb"\' so that MacOS will
+    echo allow it to have debug priveliges.
+    echo
+    echo
+    read -p "press a key to continue" -n 1 -r
+    echo
+  fi
   echo ====================================================================
   echo You will need to use your feelings source code  installation in the
   echo directory \"modtinygo\" to install the raspberry pi 3 targets into tinygo.
@@ -426,4 +450,4 @@ hostgo_install "${OS}"
 tinygo_install "${OS}"
 
 # tell the user what to do now
-postgame
+#postgame
