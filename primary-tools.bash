@@ -142,7 +142,7 @@ function pregame() {
     echo ====================================================================
     echo your PKG_CONFIG_PATH variable is not set.  it frequently causes problems
     echo with the build of qemu if you do not have this set such that the build
-    echo of qemu can find the installation of glib (version 2.54ish) that your
+    echo of qemu can find the installation of glib \(version 2.54ish\) that your
     echo package manager put in place.
     if [ "${OS}" == "darwin" ]; then
       echo On MacOS this means setting your PKG_CONFIG_PATH to point to the
