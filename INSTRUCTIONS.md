@@ -17,7 +17,6 @@ Anytime you are running a script or Makefile in any part of feelings
 or feelings from scratch, you should be *in the directory* where the
 script or Makefile is located when you try to use it.
 
-
 ## Package managers: friend and foe
 Package managers are dangerous because they do many things that you don't know
 about.  Package managers are valuable and good because they do many things 
