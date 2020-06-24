@@ -200,6 +200,7 @@ function standardLib() {
 
 function parseArgs() {
   ARGS_PARSED=true
+  JOBS="-j=1"
   while [[ $# -gt 0 ]]; do
     case ${1} in
       -s)

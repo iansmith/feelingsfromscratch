@@ -25,11 +25,11 @@ GDB_VERSION="9.2"
 GDB_URL="https://ftp.gnu.org/gnu/gdb/gdb-${GDB_VERSION}.tar.gz"
 XZ_VERSION="5.2.5"
 XZ_URL="https://sourceforge.net/projects/lzmautils/files/xz-${XZ_VERSION}.tar.gz/download"
-GLIB_SHORT="2.65"
-GLIB_VERSION="2.65.0"
-GLIB_URL="https://ftp.gnome.org/pub/gnome/sources/glib/${GLIB_SHORT}/glib-${GLIB_VERSION}.tar.xz"
 GO_VERSION="1.14.4"
 GO_URL="https://dl.google.com/go/go${GO_VERSION}.src.tar.gz"
+
+TINYGO_GIT="https://github.com/tinygo-org/tinygo.git"
+TINYGO_BRANCH="dev"
 
 source utils.bash
 declare -a configOpts
@@ -39,7 +39,7 @@ declare -a configOpts
 ###
 
 if [ "${ARGS_PARSED}" == "" ]; then
-  parseArgs $*
+  parseArgs "$*"
 fi
 if [ "${OS}" == "" ]; then
   getOS
@@ -61,6 +61,19 @@ function hostgo_install() {
 }
 
 #
+# tinygo compiler
+#
+function tinygo_install() {
+  local os=${1}
+  git clone --recursive ${TINYGO_GIT}
+  cd tinygo
+  git checkout ${TINYGO_BRANCH}
+  make llvm-source
+  make llvm-build
+  make release
+}
+
+#
 # special installer for pkg_config because needs special env vars
 #
 function pkgconfig_install() {
@@ -70,15 +83,15 @@ function pkgconfig_install() {
   local pkg=pkg-config
 
   echo =================== installing pkgconfig from ${url}
-  downloadSource "${url}" "${version}" ${pkg} ${pkg}
-  makeAndGotoBuildDir ${os} ${pkg}
+  downloadSource "${url}" "${version}" "${pkg}" "${pkg}"
+  makeAndGotoBuildDir "${os}" "${pkg}"
 
   PATH=${TOOLSDIR}/bin:${PATH} \
     PKG_CONFIG_LIBDIR=${TOOLSDIR}/lib/pkgconfig \
-    ../../src/${pkg}-${version}/configure --prefix=${TOOLSDIR} --with-internal-glib
+    "../../src/${pkg}-${version}/configure" --prefix="${TOOLSDIR}" --with-internal-glib
 
-  make ${JOBS}
-  make ${JOBS} install
+  make "${JOBS}"
+  make "${JOBS}" install
   cd ../..
   return 0
 }
@@ -114,7 +127,7 @@ function pregame() {
       echo
     fi
   else
-    if [ "LD_LIBRARY_PATH" != "" ]; then
+    if [ "${LD_LIBRARY_PATH}" != "" ]; then
       echo ====================================================================
       echo running this script with LD_LIBRARY_PATH set is likely to create
       echo key feelings tools \(binaries\) that have unexpected dependencies
@@ -139,16 +152,17 @@ function pregame() {
 
   declare -a already
   for i in qemu-system-aarch64 aarch64-elf-gdb aarch64-elf-gcc aarch64-elf-readelf aarch64-elf-objcopy; do
-    local r=$(which ${i})
-    if [ "${r}" != "n" ]; then
-      already+=(${i})
+    local r
+    r=$(hash ${i})
+    if [ "${r}" != "" ]; then
+      already+=("${i}")
     fi
   done
 
   if [ "${already[*]}" != "" ]; then
     echo ====================================================================
     echo we found some of the tools this script builds in your PATH:
-    echo ${already[*]}
+    echo "${already[*]}"
     if [ -f "${TOOLSDIR}/bin/${already[0]}" ]; then
       echo
       echo these appear to be in the place this script will install binaries
@@ -159,14 +173,18 @@ function pregame() {
       echo Running this script with these tools already in your path can cause
       echo errors when this tools builds its copy of these tools. It is likely
       echo you have another package installed that includes these tools. It is
+      # shellcheck disable=SC1010
       echo best to reset your PATH to make sure you do not have these in your
       echo PATH.
       canContinue
     fi
   fi
 
-  local hostgo=$(which go)
-  if [ "${hostgo}" == "" ] || [ "${hostgo}" == "go not found" ]; then
+  local tmp
+  tmp=$(hash go)  #to avoid hostgo being just "true"
+  local hostgo=${tmp}
+  if [ "${hostgo}" == "" ]; then
+    # shellcheck disable=SC2153
     if [ "${HOSTGO}" != "" ]; then
       echo ====================================================================
       echo you have the HOSTGO variable set\! this is likely from running this
@@ -178,6 +196,7 @@ function pregame() {
     fi
     echo ====================================================================
     echo we cannot find a copy of go in your PATH. This script uses a go
+    # shellcheck disable=SC2035
     echo compiler *only* for bootstrapping the exact version of go that it
     echo needs. You need to install a copy of go that will be found in your
     echo PATH either via your package manager or from https://golang.org/dl/
@@ -192,12 +211,13 @@ function pregame() {
     echo you have the HOSTGO variable set\! this is likely from running this
     echo script before. This is likely to cause confusion later when you
     echo use Makefiles that expect the HOSTGO variable to point to the newly
-    echo created binaries. You need to unset the $HOSTGO variable
+    # shellcheck disable=SC2016
+    echo created binaries. You need to unset the '$HOSTGO' variable
     echo
     exit 1
   fi
   echo
-  echo using $hostgo as bootstrap go compiler
+  echo using "$hostgo" as bootstrap go compiler
 }
 
 #
@@ -224,7 +244,7 @@ function setupConfigOptsCrossCompile() {
   configOpts+=("--with-gcc")
   configOpts+=("--with-gnu-as")
   configOpts+=("--with-gnu-ld")
-  if [ "tool" == "binutils" ]; then
+  if [ "${tool}" == "binutils" ]; then
     configOpts+=("--enable-ld")
     configOpts+=("--enable-gold")
   else
@@ -258,9 +278,11 @@ function postgame() {
   echo
   if [ "$OS" == "linux" ]; then
     echo "on linux this might look like this:"
+    # shellcheck disable=SC2016
     echo 'export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig'
   else
     echo "on MacOS this might look like this:"
+    # shellcheck disable=SC2016
     echo 'export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/local/lib/pkgconfig'
   fi
   echo
@@ -273,26 +295,31 @@ function postgame() {
   echo
   if [ "$OS" == "linux" ]; then
     echo "for example, on linux this might look like this:"
-    echo 'export PATH=$FFS/tools/bin/:/usr/local/bin:/usr/bin:/bin/usr/sbin:/sbin
+    # shellcheck disable=SC2016
+    echo 'export PATH=$FFS/tools/bin/:/usr/local/bin:/usr/bin:/bin/usr/sbin:/sbin'
   else
     echo "for example, on MacOS this might look like this:"
-    echo 'export PATH=$FFS/tools/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+    # shellcheck disable=SC2016
+    echo 'export PATH=$FFS/tools/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
   fi
   echo
   read -p "press a key to continue" -n 1 -r
   echo ====================================================================
   echo
   echo
+  # shellcheck disable=SC2035
   echo You will want to make sure you get *exactly* the right version of the
   echo libraries we have just installed by putting this scripts lib directory
   echo first in your dynamic library path.
   echo
   if [ "$OS" == "linux" ]; then
     echo "on linux this might look like this:"
+    # shellcheck disable=SC2016
     echo 'export LD_LIBRARY_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu'
 
   else
     echo "on MacOS this might look like this:"
+    # shellcheck disable=SC2016
     echo 'export DYLD_LIBRARY_PATH=$FFS/tools/lib:/usr/local/lib:/usr/lib'
   fi
   echo
@@ -306,10 +333,12 @@ function postgame() {
   echo
   if [ "$OS" == "linux" ]; then
     echo "on linux this might look like this:"
+    # shellcheck disable=SC2016
     echo 'export PKG_CONFIG_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu/pkgconfig'
 
   else
     echo "on MacOS this might look like this:"
+    # shellcheck disable=SC2016
     echo 'export PKG_CONFIG_PATH=$FFS/tools/lib:/usr/local/lib:/usr/lib'
   fi
   echo
@@ -319,68 +348,82 @@ function postgame() {
   echo This script built a particular version of go that it needs for its
   echo host programs.  You will want to set the environment variable HOSTGO
   echo like this:
-  echo `export HOSTGO=$FFS/hostgo`
+  # shellcheck disable=SC2016
+  echo 'export HOSTGO=$FFS/hostgo'
   echo
   read -p "press a key to continue" -n 1 -r
   echo ====================================================================
   echo
   echo If you intstalled a go compiler just to bootstrap feelings, this is
   echo a good time to remove it.
+  read -p "press a key to continue" -n 1 -r
   echo
+  echo ====================================================================
+  echo You will need to use your feelings source code  installation in the
+  echo directory \"modtinygo\" to install the raspberry pi 3 targets into tinygo.
+  echo These files are kept with feelings rather than Feelings From Scratch
+  echo because they are truly source code and they change frequently.
+  echo
+  echo Use \'make\' in the \"modifytinygo\" directory to install the most
+  echo recent version of these files into your tinygo installation.
+  read -p "press a key to continue" -n 1 -r
   echo ====================================================================
   echo Yay! done. exit 0!
 }
 
 # sanity check
-pregame ${OS}
+pregame "${OS}"
 
 ###
 ### Install procedure
 ###
 #
-## pkg config has to come first
-#pkgconfig_install ${OS}
-##qemu
-#standardLib ${OS} ${QEMU_URL} ${QEMU_VERSION} qemu -d --target-list=aarch64-softmmu \
-#  --prefix=${TOOLSDIR}
-#
-#export PATH=$FFS/tools/bin:$PATH
-#export LD_LIBRARY_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu
-#export DYLD_LIBRARY_PATH=$FFS/tools/lib:/usr/local/lib:/usr/lib
-#if [ "$OS" == "linux" ]; then
-#  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
-#else
-#  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/local/lib/pkgconfig
-#fi
-#
-## libraries we want to be controlled by us, not package manager...
-## this also means that they appear in our pkg-config, which should be
-## be first in the path of pkg-config
-#standardLib "${OS}" "${GMP_URL}" "${GMP_VERSION}" gmp -n
-#standardLib ${OS} "${MPFR_URL}" "${MPFR_VERSION}" mpfr -n "--with-gmp=${TOOLSDIR}"
-#standardLib ${OS} "${ISL_URL}" "${ISL_VERSION}" isl "--with-gmp-prefix=${TOOLSDIR}"
-#standardLib ${OS} "${MPC_URL}" "${MPC_VERSION}" mpc "--with-gmp=${TOOLSDIR}"
-#standardLib ${OS} "${CLOOG_URL}" "${CLOOG_VERSION}" cloog \
-#  "--with-gmp-prefix=${TOOLSDIR}" "--with-isl-builddir=../darwin-isl"
-#standardLib ${OS} "${XZ_URL}" "${XZ_VERSION}" xz
-#
-##just the source of newlib, used to build gcc later
-#downloadSource "${NEWLIB_URL}" "${NEWLIB_VERSION}" newlib newlib
-#
-##binutils
-#setupConfigOptsCrossCompile ${OS} binutils
-#standardLib "${OS}" "${BINUTILS_URL}" "${BINUTILS_VERSION}" binutils ${configOpts[@]}
-#
-##gcc
-#setupConfigOptsCrossCompile ${OS} gcc
-#standardLib "${OS}" "${GCC_URL}" "${GCC_VERSION}" gcc \
-#  -p=aarch64-builtins.p1.patch ${configOpts[*]}
-#
-##gdb
-#standardLib ${OS} ${GDB_URL} ${GDB_VERSION} gdb --target=aarch64-elf \
-#  --prefix=${TOOLSDIR} --disable-shared
-#
-hostgo_install ${OS}
+# pkg config has to come first
+pkgconfig_install "${OS}"
+#qemu can get confused if you don't make it abundantly clear *which* version of
+#glib you are building for, so we do it early when we can be reasonably sure it
+#will pick up the one from the package manager
+standardLib "${OS}" "${QEMU_URL}" "${QEMU_VERSION}" qemu -d --target-list=aarch64-softmmu \
+  "--prefix=${TOOLSDIR}"
+
+export PATH=$FFS/tools/bin:$PATH
+export LD_LIBRARY_PATH=$FFS/tools/lib:/usr/lib/x86_64-linux-gnu
+export DYLD_LIBRARY_PATH=$FFS/tools/lib:/usr/local/lib:/usr/lib
+if [ "$OS" == "linux" ]; then
+  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig
+else
+  export PKG_CONFIG_PATH=$FFS/tools/lib/pkgconfig:/usr/local/lib/pkgconfig
+fi
+
+# libraries we want to be controlled by us, not package manager...
+# this also means that they appear in our pkg-config, which should be
+# be first in the path of pkg-config
+standardLib "${OS}" "${GMP_URL}" "${GMP_VERSION}" gmp -n
+standardLib "${OS}" "${MPFR_URL}" "${MPFR_VERSION}" mpfr -n "--with-gmp=${TOOLSDIR}"
+standardLib "${OS}" "${ISL_URL}" "${ISL_VERSION}" isl "--with-gmp-prefix=${TOOLSDIR}"
+standardLib "${OS}" "${MPC_URL}" "${MPC_VERSION}" mpc "--with-gmp=${TOOLSDIR}"
+standardLib "${OS}" "${CLOOG_URL}" "${CLOOG_VERSION}" cloog \
+  "--with-gmp-prefix=${TOOLSDIR}" "--with-isl-builddir=../darwin-isl"
+standardLib "${OS}" "${XZ_URL}" "${XZ_VERSION}" xz
+
+#just the source of newlib, used to build gcc later
+downloadSource "${NEWLIB_URL}" "${NEWLIB_VERSION}" newlib newlib
+
+#binutils
+setupConfigOptsCrossCompile "${OS}" binutils
+standardLib "${OS}" "${BINUTILS_URL}" "${BINUTILS_VERSION}" binutils ${configOpts[@]}
+
+#gcc
+setupConfigOptsCrossCompile "${OS}" gcc
+standardLib "${OS}" "${GCC_URL}" "${GCC_VERSION}" gcc \
+  -p=aarch64-builtins.p1.patch ${configOpts[*]}
+
+#gdb
+standardLib "${OS}" "${GDB_URL}" "${GDB_VERSION}" gdb --target=aarch64-elf \
+  "--prefix=${TOOLSDIR}" --disable-shared
+
+hostgo_install "${OS}"
+tinygo_install "${OS}"
 
 # tell the user what to do now
 postgame
